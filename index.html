@@ -180,6 +180,8 @@ label.f input:focus,label.f textarea:focus{outline:none;border-color:var(--gold)
 .note ol{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:.3em}
 .note li b{margin-right:.5em;white-space:nowrap}
 .note p{margin:0}
+.note p+p{margin-top:.5em}
+.note p+h4{margin-top:.9em}
 .stamp{position:absolute;left:50%;top:30%;z-index:7;width:calc(var(--u)*14);height:calc(var(--u)*14);margin:calc(var(--u)*-7) 0 0 calc(var(--u)*-7);display:grid;place-items:center;
   border:calc(var(--u)*.7) solid var(--seal);border-radius:calc(var(--u)*1.6);background:rgba(255,246,228,.9);color:var(--seal);
   font-family:var(--font-display);font-weight:900;font-size:calc(var(--u)*4.6);line-height:1.1;writing-mode:vertical-rl;letter-spacing:.08em;opacity:0;transform:rotate(-9deg);pointer-events:none}
@@ -884,14 +886,45 @@ syncEl.addEventListener('click', () => { if (Q.failed) pump(); });
 async function drain() { for (let i = 0; i < 150 && Q.items.length && !Q.failed; i++) await sleep(200); return !Q.items.length; }
 
 /* ══════════ 對話引擎 ══════════ */
-const G = { run: null, idx: 0, mode: 'idle', nodes: [], pos: 0, gen: 0, timer: 0, autoT: 0, auto: false, ff: false, scene: null, open: [], focus: null, choice: null, solvedNow: false };
+const G = { run: null, idx: 0, mode: 'idle', nodes: [], pos: 0, gen: 0, timer: 0, autoT: 0, auto: false, ff: false, scene: null, open: [], focus: null, choice: null, solvedNow: false, card: [] };
 const SPEED = { slow: 62, normal: 36, fast: 16 };
 const dlg = byId('dlg'), nameEl = byId('dlg-name'), textEl = byId('dlg-text'), nextEl = byId('dlg-next'), tipEl = byId('dlg-tip');
 const actionsEl = byId('dlg-actions'), hintBtn = byId('b-hint'), submitBtn = byId('b-submit'), fbBtn = byId('b-fb');
 const toastEl = byId('toast'), choicesEl = byId('choices'), noteEl = byId('note'), stampEl = byId('stamp'), sheetEl = byId('sheet'), sheetBody = byId('sheet-body');
 const bgA = byId('bgA'), bgB = byId('bgB');
 const task = id => S.story.tasks[id];
-const rec = id => G.run.tasks[id] || (G.run.tasks[id] = { done: false, wrong: 0, hints: 0, revealed: !G.run.replay && !!S.story.state.rev[id], tries: [], a: [], pick: [], score: 0, mode: '' });
+const rec = id => G.run.tasks[id] || (G.run.tasks[id] = { done: false, wrong: 0, hints: 0, revealed: !G.run.replay && !!S.story.state.rev[id], tries: [], a: [], pick: [], score: 0, mode: '', explain: '', wait: false });
+
+/* 解析：同一個任務組的空格全部答對後，才一次顯示整組的解析（一樣的句子只列一次）。
+   「任務組」留白的題目自己算一組。答對後拿到的解析存在這台電腦，學生中途離開、回來做完這一組，前面的解析也會一起出現。 */
+const EKEY = 'course-game-explain-v1';
+const groupOf = id => String(task(id).group || '').trim();
+function explainScope() { const st = S.story; return [st.preview ? '老師試玩' : S.account, st.code, st.salt].join('|'); }
+function readExplains() { try { return (JSON.parse(localStorage.getItem(EKEY)) || {})[explainScope()] || {}; } catch (e) { return {}; } }
+function keepExplain(id, text) {
+  try {
+    const all = JSON.parse(localStorage.getItem(EKEY)) || {}, k = explainScope(), m = all[k] || {};
+    m[id] = text; delete all[k]; all[k] = m;                       // 最近用過的單元排在最後
+    const keys = Object.keys(all); keys.slice(0, Math.max(0, keys.length - 30)).forEach(x => delete all[x]);
+    localStorage.setItem(EKEY, JSON.stringify(all));
+  } catch (e) {}
+}
+function groupExplain(id) {
+  if (view !== 'play') return;
+  const g = groupOf(id), ids = g ? S.story.order.filter(x => groupOf(x) === g) : [id];
+  if (ids.some(x => !rec(x).done || rec(x).wait)) return;
+  const texts = [...new Set(ids.map(x => String(rec(x).explain || '').trim()).filter(Boolean))];
+  if (!texts.length) return;
+  G.card.push({ title: g || `任務${id}`, texts });
+  if (G.mode !== 'task') flushExplain();                          // 還在作答別題時，等這一句的題目都答完再顯示
+}
+function flushExplain() {
+  const cs = G.card; G.card = [];
+  if (!cs.length || view !== 'play') return;
+  if (noteEl.hidden || !noteEl.classList.contains('ok')) noteEl.textContent = '';   // 同一句已經有解析卡時，接在後面
+  noteEl.hidden = false; noteEl.classList.add('ok');
+  cs.forEach(c => { noteEl.appendChild(el('h4', '', `${c.title}　解析`)); c.texts.forEach(x => noteEl.appendChild(el('p', '', x))); });
+}
 const slotsOf = id => $$('.slot', screens.play).filter(s => s.dataset.id === id);
 const hashOf = (id, key) => sha256hex(S.story.salt + '|' + id + '|' + key);
 function localScore(t, r) {
@@ -918,8 +951,9 @@ function resolvePic(key) {
 function startRun(replay) {
   const st = S.story;
   for (const k in picCache) delete picCache[k];
-  G.run = { replay, practice: replay || st.late, tasks: {} };
-  if (!replay) for (const id in st.state.tasks) { const t = st.state.tasks[id]; G.run.tasks[id] = { done: true, wrong: t.w, hints: t.h, revealed: !!t.r, tries: [], a: t.a || [], pick: [], score: Number(t.s) || 0, mode: t.m }; }
+  G.run = { replay, practice: replay || st.late, tasks: {} }; G.card = [];
+  const ex = replay ? {} : readExplains();
+  if (!replay) for (const id in st.state.tasks) { const t = st.state.tasks[id]; G.run.tasks[id] = { done: true, wrong: t.w, hints: t.h, revealed: !!t.r, tries: [], a: t.a || [], pick: [], score: Number(t.s) || 0, mode: t.m, explain: ex[id] || '', wait: false }; }
   G.idx = replay ? 0 : Math.max(0, Math.min(st.state.idx || 0, st.lines.length - 1));
   G.scene = null; G.auto = false; G.ff = false; syncToggles();
   bgA.classList.remove('on'); bgB.classList.remove('on'); bgA.style.backgroundImage = bgB.style.backgroundImage = '';
@@ -1077,10 +1111,9 @@ function refreshHint() {
   else if (!r.answer) hintBtn.append('看答案', el('small', '', R.reveal < 1 && !G.run.practice ? `這題最多得 ${fmt(t.points * R.reveal)} 分` : '看完要自己作答'));
   else { hintBtn.textContent = '答案已顯示'; hintBtn.disabled = true; }
 }
-function showNote(id, explain) {
+function showNote(id) {
   const t = task(id), r = rec(id);
-  noteEl.textContent = ''; noteEl.hidden = false; noteEl.classList.toggle('ok', !!explain);
-  if (explain) { noteEl.appendChild(el('h4', '', `任務${id}　解析`)); noteEl.appendChild(el('p', '', explain)); return; }
+  noteEl.textContent = ''; noteEl.hidden = false; noteEl.classList.remove('ok');
   noteEl.appendChild(el('h4', '', `任務${id}　提示`));
   const ol = el('ol');
   t.hints.slice(0, r.hints).forEach((h, i) => { const li = el('li'); li.append(el('b', '', `提示 ${i + 1}`), h); ol.appendChild(li); });
@@ -1179,12 +1212,14 @@ function solve(id, shown, answer) {
   const plus = el('span', 'plus', G.run.practice ? '練習' : '+' + fmt(r.score)); byId('hud-score').appendChild(plus); setTimeout(() => plus.remove(), 1300);
   if (G.choice === id) { choicesEl.hidden = true; choicesEl.textContent = ''; G.choice = null; }
   if (!noteEl.hidden && !noteEl.classList.contains('ok')) noteEl.hidden = true;
-  const line = G.idx;
+  r.wait = true;
   queueSave({ unit: st.code, id, answer, wrong: r.wrong, hints: r.hints, revealed: r.revealed, wrongs: r.tries, idx: G.idx }, res => {
-    if (!res.ok) { if (view === 'play') toastEl.textContent = res.error; return; }
+    r.wait = false;
+    if (!res.ok) { if (view === 'play') toastEl.textContent = res.error; groupExplain(id); return; }
     r.mode = res.mode; r.score = res.mode !== '練習' && !G.run.replay ? res.score : 0;
+    r.explain = res.explain || ''; if (!G.run.replay) keepExplain(id, r.explain);
     if (res.shown && res.shown.length) { r.a = res.shown; slotsOf(id).forEach(paintSlot); }
-    if (view === 'play') { updateHud(); if (res.explain && G.idx === line) showNote(id, res.explain); }
+    if (view === 'play') { updateHud(); groupExplain(id); }
   });
 }
 function afterAnswer() {
@@ -1201,6 +1236,7 @@ function afterAnswer() {
   submitBtn.hidden = true; hintBtn.hidden = true; tipEl.textContent = ''; sheetEl.hidden = true;
   $$('.slot.now', screens.play).forEach(s => s.classList.remove('now'));
   G.mode = 'wait'; G.solvedNow = true; nextEl.hidden = false;
+  flushExplain();
 }
 hintBtn.addEventListener('click', e => { e.stopPropagation(); useHint(); });
 submitBtn.addEventListener('click', e => { e.stopPropagation(); submit(); });
