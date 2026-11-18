@@ -3,7 +3,15 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>課程遊戲</title>
+<title>島嶼尋光</title>
+<meta name="description" content="國中公民課的對話式闖關遊戲：島嶼上的六個故事，尋找屬於我們的光芒。">
+<!-- 把網址貼到 LINE、Google Classroom、Facebook 時顯示的預覽 -->
+<meta property="og:type" content="website">
+<meta property="og:title" content="島嶼尋光">
+<meta property="og:description" content="島嶼上的六個故事，尋找屬於我們的光芒">
+<meta property="og:image" content="https://yilaoshih.github.io/civilstory/img/cover.jpg">
+<meta property="og:url" content="https://yilaoshih.github.io/civilstory/">
+<meta name="twitter:card" content="summary_large_image">
 <link href="https://fonts.googleapis.com/css2?family=LXGW+WenKai+TC:wght@400;700&family=Noto+Sans+TC:wght@400;700&family=Noto+Serif+TC:wght@900&display=swap" rel="stylesheet">
 <style>
 :root{
@@ -356,7 +364,7 @@ label.f input:focus,label.f textarea:focus{outline:none;border-color:var(--gold)
     <div class="title-wrap">
       <div class="title-head">
         <p class="eyebrow">公民課・對話闖關</p>
-        <h1 id="g-title">課程遊戲</h1>
+        <h1 id="g-title">島嶼尋光</h1>
         <p class="tagline" id="g-sub"></p>
       </div>
       <form class="card" id="auth-form" novalidate>
@@ -383,7 +391,7 @@ label.f input:focus,label.f textarea:focus{outline:none;border-color:var(--gold)
     <div class="fill glow"></div>
     <div class="hub-wrap">
       <header class="hub-head">
-        <div><p class="eyebrow" id="hub-eyebrow">故事選單</p><h2 id="hub-title">課程遊戲</h2></div>
+        <div><p class="eyebrow" id="hub-eyebrow">故事選單</p><h2 id="hub-title">島嶼尋光</h2></div>
         <div class="who"><span id="who-label"></span><button class="btn" id="b-db" type="button" hidden>看後台記錄了什麼</button><button class="btn" id="logout" type="button">登出</button></div>
       </header>
       <div class="hub-body">
@@ -507,7 +515,7 @@ label.f input:focus,label.f textarea:focus{outline:none;border-color:var(--gold)
 <div id="admin" hidden>
   <div class="ad-wrap">
     <header class="ad-top">
-      <div><p class="ad-eyebrow">老師後台</p><h1 id="ad-title">課程遊戲</h1></div>
+      <div><p class="ad-eyebrow">老師後台</p><h1 id="ad-title">島嶼尋光</h1></div>
       <div class="ad-row">
         <button class="ad-btn" id="ad-reload" type="button" title="剛改過試算表時按這裡，不用等兩分鐘">重新讀取試算表</button>
         <button class="ad-btn" id="ad-exit" type="button">回到遊戲</button>
@@ -699,11 +707,11 @@ byId('logout').addEventListener('click', () => signOut(''));
 function applyUniverse(r) {
   S.uni = { themes: r.themes || [], units: r.units || [], title: r.title, subtitle: r.subtitle, intro: r.intro };
   S.skew = (r.now || Date.now()) - Date.now();
-  document.title = r.title || '課程遊戲';
-  byId('g-title').textContent = r.title || '課程遊戲';
+  document.title = r.title || '島嶼尋光';
+  byId('g-title').textContent = r.title || '島嶼尋光';
   byId('g-sub').textContent = r.subtitle || '';
   setCover(r.cover || '', !!r.coverTitled, r.coverTall || '');
-  byId('hub-title').textContent = r.title || '課程遊戲';
+  byId('hub-title').textContent = r.title || '島嶼尋光';
   if (r.subtitle) byId('hub-eyebrow').textContent = r.subtitle;
 }
 function unitStatus(u) {
@@ -1382,7 +1390,7 @@ function adView(dash) {
   adLogin.hidden = dash; adDash.hidden = !dash;
   byId('ad-reload').hidden = byId('ad-out').hidden = !dash;
   byId('ad-demo').hidden = !window.MockServer;
-  byId('ad-title').textContent = (A.data && A.data.title) || (S.uni && S.uni.title) || '課程遊戲';
+  byId('ad-title').textContent = (A.data && A.data.title) || (S.uni && S.uni.title) || '島嶼尋光';
 }
 function openAdmin() {
   S.preview = false; adminShow(true);
