@@ -189,7 +189,6 @@ label.f input:focus,label.f textarea:focus{outline:none;border-color:var(--gold)
 .note li b{margin-right:.5em;white-space:nowrap}
 .note p{margin:0}
 .note p+p{margin-top:.5em}
-.note p+h4{margin-top:.9em}
 .stamp{position:absolute;left:50%;top:30%;z-index:7;width:calc(var(--u)*14);height:calc(var(--u)*14);margin:calc(var(--u)*-7) 0 0 calc(var(--u)*-7);display:grid;place-items:center;
   border:calc(var(--u)*.7) solid var(--seal);border-radius:calc(var(--u)*1.6);background:rgba(255,246,228,.9);color:var(--seal);
   font-family:var(--font-display);font-weight:900;font-size:calc(var(--u)*4.6);line-height:1.1;writing-mode:vertical-rl;letter-spacing:.08em;opacity:0;transform:rotate(-9deg);pointer-events:none}
@@ -203,6 +202,11 @@ label.f input:focus,label.f textarea:focus{outline:none;border-color:var(--gold)
 .log-line .w{color:var(--gold);font-weight:700;text-align:right}
 .log-line.narr{color:var(--jade)}
 .log-line mark{background:none;color:var(--gold);font-weight:700;border-bottom:1px solid var(--gold)}
+.hbtn.new::after{content:"";display:inline-block;width:.55em;height:.55em;margin-left:.4em;border-radius:50%;background:var(--seal);box-shadow:0 0 0 2px rgba(38,26,18,.85);vertical-align:.12em}
+.exp-group{border-left:3px solid rgba(241,226,191,.35);padding:.1em 0 .2em 1em}
+.exp-group.latest{border-left-color:var(--seal)}
+.exp-group h4 .tag{margin-left:.6em;padding:.05em .55em;border-radius:99px;background:var(--seal);color:#fff;font-size:.85em;letter-spacing:.05em}
+.exp-group p{margin:.35em 0 0;font-family:var(--font-talk);font-size:max(14px,calc(var(--u)*1.7));line-height:1.6;user-select:text;-webkit-user-select:text}
 .set-row{display:grid;grid-template-columns:7em minmax(0,22em);align-items:center;gap:1em;font-size:max(13px,calc(var(--u)*1.5))}
 .fb-q{margin:0;font-family:var(--font-talk);font-size:max(13px,calc(var(--u)*1.6))}
 .dbt{border-collapse:collapse;font-size:12px;width:100%;user-select:text;-webkit-user-select:text}
@@ -238,6 +242,9 @@ label.f input:focus,label.f textarea:focus{outline:none;border-color:var(--gold)
 #stage.portrait .unit{grid-template-columns:auto 1fr}
 #stage.portrait .unit .act{grid-column:1/-1;justify-self:end}
 #stage.portrait .dock{padding-inline:2.5%}
+#stage.portrait .hud{padding-inline:calc(var(--u)*1.1)}
+#stage.portrait .hud-right{gap:calc(var(--u)*.4)}
+#stage.portrait .hud-right .plate,#stage.portrait .hud-right .hbtn{padding-inline:calc(var(--u)*.75)}
 #stage.portrait .dlg{padding-inline:calc(var(--u)*2.2)}
 #stage.portrait .opts{grid-template-columns:1fr}
 #stage.portrait #scr-play.baked .dock::before{content:"";position:absolute;left:0;right:0;bottom:0;z-index:-1;height:calc(var(--sh)*.37);background:linear-gradient(180deg,rgba(26,17,11,0),#1a110b 14%)}
@@ -444,6 +451,7 @@ label.f input:focus,label.f textarea:focus{outline:none;border-color:var(--gold)
         <button class="hbtn" id="b-auto" type="button" aria-pressed="false">自動</button>
         <button class="hbtn" id="b-ff" type="button" aria-pressed="false">快轉</button>
         <button class="hbtn" id="b-log" type="button">紀錄</button>
+        <button class="hbtn" id="b-exp" type="button" hidden>解析</button>
         <button class="hbtn" id="b-set" type="button">設定</button>
         <button class="hbtn" id="b-menu" type="button">選單</button>
       </div>
@@ -473,6 +481,10 @@ label.f input:focus,label.f textarea:focus{outline:none;border-color:var(--gold)
     <div class="ov" id="ov-log" hidden>
       <div class="ov-head"><h3>對話紀錄</h3><button class="btn" type="button" data-close>關閉</button></div>
       <div class="ov-body" id="log-body"></div>
+    </div>
+    <div class="ov" id="ov-exp" hidden>
+      <div class="ov-head"><h3>解析</h3><button class="btn" type="button" data-close>關閉</button></div>
+      <div class="ov-body" id="exp-body"></div>
     </div>
     <div class="ov" id="ov-set" hidden>
       <div class="ov-head"><h3>設定</h3><button class="btn" type="button" data-close>關閉</button></div>
@@ -894,7 +906,7 @@ syncEl.addEventListener('click', () => { if (Q.failed) pump(); });
 async function drain() { for (let i = 0; i < 150 && Q.items.length && !Q.failed; i++) await sleep(200); return !Q.items.length; }
 
 /* ══════════ 對話引擎 ══════════ */
-const G = { run: null, idx: 0, mode: 'idle', nodes: [], pos: 0, gen: 0, timer: 0, autoT: 0, auto: false, ff: false, scene: null, open: [], focus: null, choice: null, solvedNow: false, card: [] };
+const G = { run: null, idx: 0, mode: 'idle', nodes: [], pos: 0, gen: 0, timer: 0, autoT: 0, auto: false, ff: false, scene: null, open: [], focus: null, choice: null, solvedNow: false, expNew: '' };
 const SPEED = { slow: 62, normal: 36, fast: 16 };
 const dlg = byId('dlg'), nameEl = byId('dlg-name'), textEl = byId('dlg-text'), nextEl = byId('dlg-next'), tipEl = byId('dlg-tip');
 const actionsEl = byId('dlg-actions'), hintBtn = byId('b-hint'), submitBtn = byId('b-submit'), fbBtn = byId('b-fb');
@@ -903,8 +915,9 @@ const bgA = byId('bgA'), bgB = byId('bgB');
 const task = id => S.story.tasks[id];
 const rec = id => G.run.tasks[id] || (G.run.tasks[id] = { done: false, wrong: 0, hints: 0, revealed: !G.run.replay && !!S.story.state.rev[id], tries: [], a: [], pick: [], score: 0, mode: '', explain: '', wait: false });
 
-/* 解析：同一個任務組的空格全部答對後，才一次顯示整組的解析（一樣的句子只列一次）。
-   「任務組」留白的題目自己算一組。答對後拿到的解析存在這台電腦，學生中途離開、回來做完這一組，前面的解析也會一起出現。 */
+/* 解析：不會自己跳出來。同一個任務組的空格全部答對後，上方的「解析」按鈕會出現（亮小紅點），
+   學生按了才打開，裡面依序列出已完成任務組的解析（一樣的句子只列一次）。「任務組」留白的題目自己算一組。
+   答對後拿到的解析存在這台電腦，學生中途離開、回來做完這一組，前面的解析也會一起列出。 */
 const EKEY = 'course-game-explain-v1';
 const groupOf = id => String(task(id).group || '').trim();
 function explainScope() { const st = S.story; return [st.preview ? '老師試玩' : S.account, st.code, st.salt].join('|'); }
@@ -917,22 +930,43 @@ function keepExplain(id, text) {
     localStorage.setItem(EKEY, JSON.stringify(all));
   } catch (e) {}
 }
+/** 已完成、而且有寫解析的任務組，依題目順序。 */
+function explainGroups() {
+  const seen = {}, out = [];
+  for (const id of S.story.order) {
+    const g = groupOf(id), key = g || '#' + id;
+    if (seen[key]) continue; seen[key] = 1;
+    const ids = g ? S.story.order.filter(x => groupOf(x) === g) : [id];
+    if (ids.some(x => !rec(x).done || rec(x).wait)) continue;
+    const texts = [...new Set(ids.map(x => String(rec(x).explain || '').trim()).filter(Boolean))];
+    if (texts.length) out.push({ key, title: g || `任務${id}`, texts });
+  }
+  return out;
+}
+const expBtn = byId('b-exp');
+function refreshExpBtn() { expBtn.hidden = !explainGroups().length; }
+/** 一題的答案存好之後呼叫：如果它所在的任務組剛好完成、又有解析，「解析」按鈕亮小紅點。 */
 function groupExplain(id) {
   if (view !== 'play') return;
-  const g = groupOf(id), ids = g ? S.story.order.filter(x => groupOf(x) === g) : [id];
-  if (ids.some(x => !rec(x).done || rec(x).wait)) return;
-  const texts = [...new Set(ids.map(x => String(rec(x).explain || '').trim()).filter(Boolean))];
-  if (!texts.length) return;
-  G.card.push({ title: g || `任務${id}`, texts });
-  if (G.mode !== 'task') flushExplain();                          // 還在作答別題時，等這一句的題目都答完再顯示
+  const g = groupOf(id), key = g || '#' + id;
+  const done = explainGroups().find(x => x.key === key);
+  if (done) { G.expNew = key; expBtn.classList.add('new'); }
+  refreshExpBtn();
 }
-function flushExplain() {
-  const cs = G.card; G.card = [];
-  if (!cs.length || view !== 'play') return;
-  if (noteEl.hidden || !noteEl.classList.contains('ok')) noteEl.textContent = '';   // 同一句已經有解析卡時，接在後面
-  noteEl.hidden = false; noteEl.classList.add('ok');
-  cs.forEach(c => { noteEl.appendChild(el('h4', '', `${c.title}　解析`)); c.texts.forEach(x => noteEl.appendChild(el('p', '', x))); });
-}
+expBtn.addEventListener('click', () => {
+  clearTimeout(G.autoT);
+  const body = byId('exp-body'); body.textContent = '';
+  let latest = null;
+  explainGroups().forEach(c => {
+    const box = el('section', 'exp-group'), h = el('h4', '', `${c.title}`);
+    if (c.key === G.expNew) { box.classList.add('latest'); h.appendChild(el('span', 'tag', '剛完成')); latest = box; }
+    box.appendChild(h); c.texts.forEach(x => box.appendChild(el('p', '', x)));
+    body.appendChild(box);
+  });
+  expBtn.classList.remove('new');
+  byId('ov-exp').hidden = false;
+  if (latest) latest.scrollIntoView({ block: 'nearest' }); else body.scrollTop = body.scrollHeight;
+});
 const slotsOf = id => $$('.slot', screens.play).filter(s => s.dataset.id === id);
 const hashOf = (id, key) => sha256hex(S.story.salt + '|' + id + '|' + key);
 function localScore(t, r) {
@@ -959,9 +993,10 @@ function resolvePic(key) {
 function startRun(replay) {
   const st = S.story;
   for (const k in picCache) delete picCache[k];
-  G.run = { replay, practice: replay || st.late, tasks: {} }; G.card = [];
+  G.run = { replay, practice: replay || st.late, tasks: {} }; G.expNew = ''; expBtn.classList.remove('new');
   const ex = replay ? {} : readExplains();
   if (!replay) for (const id in st.state.tasks) { const t = st.state.tasks[id]; G.run.tasks[id] = { done: true, wrong: t.w, hints: t.h, revealed: !!t.r, tries: [], a: t.a || [], pick: [], score: Number(t.s) || 0, mode: t.m, explain: ex[id] || '', wait: false }; }
+  refreshExpBtn();
   G.idx = replay ? 0 : Math.max(0, Math.min(st.state.idx || 0, st.lines.length - 1));
   G.scene = null; G.auto = false; G.ff = false; syncToggles();
   bgA.classList.remove('on'); bgB.classList.remove('on'); bgA.style.backgroundImage = bgB.style.backgroundImage = '';
@@ -1244,7 +1279,6 @@ function afterAnswer() {
   submitBtn.hidden = true; hintBtn.hidden = true; tipEl.textContent = ''; sheetEl.hidden = true;
   $$('.slot.now', screens.play).forEach(s => s.classList.remove('now'));
   G.mode = 'wait'; G.solvedNow = true; nextEl.hidden = false;
-  flushExplain();
 }
 hintBtn.addEventListener('click', e => { e.stopPropagation(); useHint(); });
 submitBtn.addEventListener('click', e => { e.stopPropagation(); submit(); });
